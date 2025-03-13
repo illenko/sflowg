@@ -2,41 +2,10 @@ package main
 
 import (
 	"fmt"
-	"os"
-
 	"gopkg.in/yaml.v3"
+	"os"
+	"sflowg/sflowg"
 )
-
-type Flow struct {
-	Entrypoint Entrypoint     `yaml:"entrypoint"`
-	Steps      []Step         `yaml:"steps"`
-	Properties map[string]any `yaml:"properties"`
-	Return     Return         `yaml:"return"`
-}
-
-type Entrypoint struct {
-	Type   string `yaml:"type"`
-	Path   string `yaml:"path"`
-	Result string `yaml:"result"`
-}
-
-type Step struct {
-	ID     string `yaml:"id"`
-	Type   string `yaml:"type"`
-	Args   any    `yaml:"args"`
-	Next   string `yaml:"next,omitempty"`
-	Result string `yaml:"result,omitempty"`
-}
-
-type Return struct {
-	Type string                 `yaml:"type"`
-	Args map[string]interface{} `yaml:"args"`
-}
-
-type Execution struct {
-	Flow    Flow
-	Context map[string]any
-}
 
 func main() {
 	yamlFile, err := os.ReadFile("flows/test_flow.yaml")
@@ -45,7 +14,7 @@ func main() {
 		return
 	}
 
-	var flow Flow
+	var flow sflowg.Flow
 	err = yaml.Unmarshal(yamlFile, &flow)
 	if err != nil {
 		fmt.Printf("Error unmarshalling YAML: %v\n", err)
@@ -53,22 +22,25 @@ func main() {
 	}
 
 	fmt.Printf("Flow: %+v\n", flow)
-}
 
-func findNextStepIndex(steps []Step, currentStepID string) int {
-	for i, step := range steps {
-		if step.ID == currentStepID && i+1 < len(steps) {
-			return i + 1
+	execution := sflowg.NewExecution(flow)
+
+	for k, v := range flow.Properties {
+		execution.AddContext(fmt.Sprintf("properties.%s", k), v)
+	}
+
+	for _, step := range flow.Steps {
+		if step.Type == "assign" {
+			args := step.Args.(map[string]any)
+
+			for k, v := range args {
+				result, err := sflowg.Eval(v.(string), execution.Context)
+				if err != nil {
+					fmt.Printf("Error evaluating expression: %v\n", err)
+					return
+				}
+				execution.AddContext(k, result)
+			}
 		}
 	}
-	return -1
-}
-
-func findStepByID(steps []Step, id string) (Step, bool) {
-	for _, step := range steps {
-		if step.ID == id {
-			return step, true
-		}
-	}
-	return Step{}, false
 }
