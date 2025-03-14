@@ -47,13 +47,10 @@ func Execute(f Flow, e *Execution) error {
 				e.AddVal(k, result)
 			}
 		} else if s.Type == "switch" {
-			args := s.Args.([]any)
+			args := s.Args.(map[string]any)
 
-			for _, c := range args {
-				cond := c.(map[string]any)
-
-				condition := cond["condition"].(string)
-				next := cond["next"].(string)
+			for n, c := range args {
+				condition := c.(string)
 
 				result, err := Eval(condition, e.Values)
 				if err != nil {
@@ -62,8 +59,8 @@ func Execute(f Flow, e *Execution) error {
 				}
 
 				if result.(bool) {
-					fmt.Printf("Resolving switch: %s is true, next step is %s\n", condition, next)
-					nextStep = next
+					fmt.Printf("Resolving switch: %s is true, next step is %s\n", condition, n)
+					nextStep = n
 					break
 				} else {
 					fmt.Printf("Resolving switch: %s is false\n", condition)

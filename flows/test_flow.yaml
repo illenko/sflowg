@@ -35,6 +35,8 @@ steps:
     args:
       url: properties.paymentServiceUrl
       method: post
+      headers:
+        - X-API-Key: request.headers.X-API-Key
       body:
         var_amount: properties.amount
         amount: request.body.amount
@@ -47,12 +49,9 @@ steps:
   - id: processPaymentResponse
     type: switch
     args:
-      - condition: request.body.amount.total == 200
-        next: processSuccessfulPayment
-      - condition: request.body.amount.total == 400
-        next: processFailedPayment
-      - condition: true == true
-        next: processDefaultPayment
+      processSuccessfulPayment: request.body.amount.total == 200
+      processFailedPayment: request.body.amount.total == 400
+      processDefaultPayment: true == true
 
   - id: processSuccessfulPayment
     type: assign
