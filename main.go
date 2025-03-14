@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
 	"sflowg/sflowg"
+	"sflowg/sflowg/entrypoint"
+
+	"github.com/gin-gonic/gin"
+	"gopkg.in/yaml.v3"
 )
 
 func main() {
@@ -23,24 +26,21 @@ func main() {
 
 	fmt.Printf("Flow: %+v\n", flow)
 
-	execution := sflowg.NewExecution(flow)
+	g := gin.Default()
 
-	for k, v := range flow.Properties {
-		execution.AddContext(fmt.Sprintf("properties.%s", k), v)
+	entrypoint.NewHttpHandler(flow, g)
+
+	err = g.Run(":8080")
+
+	if err != nil {
+		fmt.Printf("Error running server: %v", err)
 	}
 
-	for _, step := range flow.Steps {
-		if step.Type == "assign" {
-			args := step.Args.(map[string]any)
+	//execution := sflowg.NewExecution(flow)
+	//
+	//for k, v := range flow.Properties {
+	//	execution.AddVal(fmt.Sprintf("properties.%s", k), v)
+	//}
+	//
 
-			for k, v := range args {
-				result, err := sflowg.Eval(v.(string), execution.Context)
-				if err != nil {
-					fmt.Printf("Error evaluating expression: %v\n", err)
-					return
-				}
-				execution.AddContext(k, result)
-			}
-		}
-	}
 }

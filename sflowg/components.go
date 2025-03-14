@@ -1,6 +1,8 @@
 package sflowg
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 )
 
@@ -13,17 +15,18 @@ type Flow struct {
 }
 
 type Entrypoint struct {
-	Type   string `yaml:"type"`
-	Path   string `yaml:"path"`
-	Result string `yaml:"result"`
+	Type   string         `yaml:"type"`
+	Config map[string]any `yaml:"config"`
+	Result string         `yaml:"result"`
 }
 
 type Step struct {
-	ID     string `yaml:"id"`
-	Type   string `yaml:"type"`
-	Args   any    `yaml:"args"`
-	Next   string `yaml:"next,omitempty"`
-	Result string `yaml:"result,omitempty"`
+	ID        string `yaml:"id"`
+	Type      string `yaml:"type"`
+	Condition string `yaml:"condition,omitempty"`
+	Args      any    `yaml:"args"`
+	Next      string `yaml:"next,omitempty"`
+	Result    string `yaml:"result,omitempty"`
 }
 
 type Return struct {
@@ -34,17 +37,23 @@ type Return struct {
 type Execution struct {
 	ID      string
 	FlowId  string
-	Context map[string]any
+	Context context.Context
+	Values  map[string]any
 }
 
 func NewExecution(flow Flow) Execution {
+	id := uuid.New().String()
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "flowId", flow.ID)
+	ctx = context.WithValue(ctx, "executionId", id)
 	return Execution{
-		ID:      uuid.New().String(),
+		ID:      id,
 		FlowId:  flow.ID,
-		Context: make(map[string]any),
+		Context: ctx,
+		Values:  make(map[string]any),
 	}
 }
 
-func (e *Execution) AddContext(k string, v any) {
-	e.Context[FormatKey(k)] = v
+func (e *Execution) AddVal(k string, v any) {
+	e.Values[FormatKey(k)] = v
 }

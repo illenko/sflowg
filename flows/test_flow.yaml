@@ -1,64 +1,77 @@
 id: test_flow
 
 entrypoint:
-  type: http.post
-  path: /purchase
+  type: http
+  config:
+    method: post
+    path: /purchase/:id
+    headers:
+      - X-API-Key
+    pathVariables:
+      - id
+    queryParameters:
+      - mode
+    body:
+      type: json
   result: request
 
 properties:
-  payment_service_url: "http://localhost:8080/pay"
+  paymentServiceUrl: "http://localhost:8080/pay"
   amount: 555
-  card_number: "1234 5678 1234 5678"
-  expiry_date: "12/22"
-  default_status: "default"
+  cardNumber: "1234 5678 1234 5678"
+  expiryDate: "12/22"
+  defaultStatus: "default"
 
 steps:
   - id: start
     type: assign
     args:
-      assigned_status: properties.default_status
+      assignedStatus: properties.defaultStatus
+      receivedCard: request.body.card.number
 
-  - id: send_payment_request
-    type: http.post
+  - id: sendPaymentRequest
+    type: http
+    condition: request.body.amount.total > 400
     args:
-      url: properties.payment_service_url
+      url: properties.paymentServiceUrl
+      method: post
       body:
         var_amount: properties.amount
         amount: request.body.amount
         card_number: request.body.card
-        card_number_var: properties.card_number
+        card_number_var: properties.cardNumber
         expiry: request.body.expiryDate
         cvv: request.body.cvv
-    result: payment_response
+    result: paymentResponse
 
-  - id: process_payment_response
+  - id: processPaymentResponse
     type: switch
     args:
-      - condition: payment_response.status == 200
-        next: process_successful_payment
-      - condition: payment_response.status == 400
-        next: process_failed_payment
-      - condition: true
-        next: process_default_payment
+      - condition: request.body.amount.total == 200
+        next: processSuccessfulPayment
+      - condition: request.body.amount.total == 400
+        next: processFailedPayment
+      - condition: true == true
+        next: processDefaultPayment
 
-  - id: process_successful_payment
+  - id: processSuccessfulPayment
     type: assign
     args:
-      assigned_status: "success"
+      assignedStatusNew: '"success"'
 
-  - id: process_failed_payment
+  - id: processFailedPayment
     type: assign
     args:
-      assigned_status: "failed"
+      assignedStatusNew: '"failed"'
 
-  - id: process_default_payment
+  - id: processDefaultPayment
     type: assign
     args:
-      assigned_status: "default"
+      assignedStatusNew: '"default"'
 
 return:
   type: http.response
   args:
     status: 200
     body:
-      status: assigned_status
+      status: assignedStatus
