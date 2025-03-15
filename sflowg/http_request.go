@@ -9,7 +9,7 @@ import (
 type HttpRequest struct{}
 
 func (t *HttpRequest) Execute(e *Execution, args map[string]any) (map[string]any, error) {
-	requestConfig, err := parseArgs(args)
+	requestConfig, err := parseArgs(e, args)
 
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ type httpRequestConfig struct {
 	body        map[string]any
 }
 
-func parseArgs(args map[string]any) (httpRequestConfig, error) {
+func parseArgs(e *Execution, args map[string]any) (httpRequestConfig, error) {
 	uri, ok := args["url"].(string)
 	if !ok {
 		return httpRequestConfig{}, fmt.Errorf("uri not found or not a string")
@@ -47,8 +47,40 @@ func parseArgs(args map[string]any) (httpRequestConfig, error) {
 	}
 
 	headers := args["headers"].(map[string]any)
+
+	for key, value := range headers {
+		headerValue, err := Eval(value.(string), e.Values)
+
+		if err != nil {
+			return httpRequestConfig{}, err
+		}
+
+		headers[key] = headerValue
+	}
+
 	queryParameters := args["queryParameters"].(map[string]any)
+
+	for key, value := range queryParameters {
+		queryValue, err := Eval(value.(string), e.Values)
+
+		if err != nil {
+			return httpRequestConfig{}, err
+		}
+
+		queryParameters[key] = queryValue
+	}
+
 	body := args["body"].(map[string]any)
+
+	for key, value := range body {
+		bodyValue, err := Eval(value.(string), e.Values)
+
+		if err != nil {
+			return httpRequestConfig{}, err
+		}
+
+		body[key] = bodyValue
+	}
 
 	return httpRequestConfig{
 		uri:         uri,

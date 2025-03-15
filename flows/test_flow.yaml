@@ -37,14 +37,14 @@ steps:
       headers:
         X-API-Key: request.headers.X-API-Key
       queryParameters:
-        mode: request.query.mode
+        mode: request.queryParameters.mode
       body:
-        var_amount: properties.amount
-        amount: request.body.amount
-        card_number: request.body.card
+        var_amount: properties.amount.total
+        amount: request.body.amount.total
+        card_number: request.body.card.number
         card_number_var: properties.cardNumber
         expiry: request.body.expiryDate
-        cvv: request.body.cvv
+        cvv: request.body.card.cvv
 
   - id: processPaymentResponse
     type: switch

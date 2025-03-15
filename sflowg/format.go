@@ -5,30 +5,46 @@ import (
 	"strings"
 )
 
-func FormatKey(k string) string {
-	return strings.ReplaceAll(k, ".", "_")
+var (
+	hyphenStartOrEndRe = regexp.MustCompile(`(^|[^ ])-([^ ]|$)`)
+	hyphenMiddleRe     = regexp.MustCompile(`([^ ])-([^ ])`)
+)
+
+func FormatKey(key string) string {
+	key = strings.ReplaceAll(key, ".", "_")
+	key = hyphenStartOrEndRe.ReplaceAllString(key, "${1}_${2}")
+	key = hyphenMiddleRe.ReplaceAllString(key, "${1}_${2}")
+	return key
 }
 
-var re = regexp.MustCompile(`\.`)
-
 func FormatExpression(e string) string {
-	matches := re.FindAllStringIndex(e, -1)
-
 	result := []rune(e)
-	for _, match := range matches {
-		dotIndex := match[0]
-		openParentheses := 0
+	openParentheses := 0
 
-		for i := 0; i < dotIndex; i++ {
-			if result[i] == '(' {
-				openParentheses++
-			} else if result[i] == ')' {
-				openParentheses--
+	for i, r := range result {
+		switch r {
+		case '(':
+			openParentheses++
+		case ')':
+			openParentheses--
+		case '.':
+			if openParentheses == 0 {
+				result[i] = '_'
 			}
-		}
+		case '-':
+			if openParentheses == 0 {
+				temp := string(result[i-1 : i+2])
+				if i == 0 {
+					temp = string(result[i : i+2])
+				} else if i == len(result)-1 {
+					temp = string(result[i-1 : i+1])
+				}
 
-		if openParentheses == 0 {
-			result[dotIndex] = '_'
+				if hyphenStartOrEndRe.MatchString(temp) || hyphenMiddleRe.MatchString(temp) {
+					result[i] = '_'
+				}
+
+			}
 		}
 	}
 	return string(result)

@@ -75,11 +75,11 @@ func Execute(e *Execution) error {
 			output, err := httpTask.Execute(e, s.Args)
 
 			if err != nil {
-				return err
+				e.AddVal(fmt.Sprintf("%s.error", s.ID), err.Error())
 			}
 
 			for k, v := range output {
-				e.AddVal(k, v)
+				e.AddVal(fmt.Sprintf("%s.result.%s", s.ID, k), v)
 			}
 		} else {
 			fmt.Printf("Task type: %s not supported yet\n", s.Type)
