@@ -28,17 +28,11 @@ func NewHttpHandler(f sflowg.Flow, g *gin.Engine) {
 	}
 }
 
-func handleRequest(f sflowg.Flow, body bool) gin.HandlerFunc {
+func handleRequest(f sflowg.Flow, withBody bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		e := sflowg.NewExecution(f)
 
-		handlePathVariables(c, f, &e)
-		handleQueryParameters(c, f, &e)
-		handleHeaders(c, f, &e)
-
-		if body {
-			handleBody(c, f, &e)
-		}
+		extractRequestData(c, f, &e, withBody)
 
 		err := sflowg.Execute(f, &e)
 
@@ -53,39 +47,49 @@ func handleRequest(f sflowg.Flow, body bool) gin.HandlerFunc {
 	}
 }
 
-func handlePathVariables(c *gin.Context, f sflowg.Flow, e *sflowg.Execution) {
-	result := f.Entrypoint.Result
-	pathVariables := f.Entrypoint.Config["pathVariables"].([]any)
-	for _, p := range pathVariables {
-		v := p.(string)
-		e.AddVal(fmt.Sprintf("%s.pathVariables.%s", result, v), c.Param(v))
+const (
+	PathVariablesKey   = "pathVariables"
+	QueryParametersKey = "queryParameters"
+	HeadersKey         = "headers"
+
+	PathVariablesPrefix   = "request.pathVariables"
+	QueryParametersPrefix = "request.queryParameters"
+	HeadersPrefix         = "request.headers"
+	RequestBodyPrefix     = "request.body"
+)
+
+func extractRequestData(c *gin.Context, f sflowg.Flow, e *sflowg.Execution, withBody bool) {
+	if pathVariables, ok := f.Entrypoint.Config[PathVariablesKey].([]any); ok {
+		extractValues(e, pathVariables, PathVariablesPrefix, c.Param)
+	}
+
+	if queryParameters, ok := f.Entrypoint.Config[QueryParametersKey].([]any); ok {
+		extractValues(e, queryParameters, QueryParametersPrefix, c.Query)
+	}
+
+	if headers, ok := f.Entrypoint.Config[HeadersKey].([]any); ok {
+		extractValues(e, headers, HeadersPrefix, c.GetHeader)
+	}
+
+	if withBody {
+		extractBody(c, f, e)
 	}
 }
 
-func handleQueryParameters(c *gin.Context, f sflowg.Flow, e *sflowg.Execution) {
-	result := f.Entrypoint.Result
-	queryParameters := f.Entrypoint.Config["queryParameters"].([]any)
-	for _, q := range queryParameters {
-		v := q.(string)
-		e.AddVal(fmt.Sprintf("%s.queryParameters.%s", result, v), c.Query(v))
+func extractValues(e *sflowg.Execution, keys []any, prefix string, getValue func(string) string) {
+	for _, key := range keys {
+		if v, ok := key.(string); ok {
+			e.AddVal(fmt.Sprintf("%s.%s", prefix, v), getValue(v))
+		}
 	}
 }
 
-func handleHeaders(c *gin.Context, f sflowg.Flow, e *sflowg.Execution) {
-	result := f.Entrypoint.Result
-	headers := f.Entrypoint.Config["headers"].([]any)
-	for _, h := range headers {
-		v := h.(string)
-		e.AddVal(fmt.Sprintf("%s.headers.%s", result, v), c.GetHeader(v))
-	}
-}
-
-func handleBody(c *gin.Context, f sflowg.Flow, e *sflowg.Execution) {
+func extractBody(c *gin.Context, f sflowg.Flow, e *sflowg.Execution) {
 	bodyConfig := f.Entrypoint.Config["body"].(map[string]any)
 	bodyType := bodyConfig["type"].(string)
 
 	if bodyType == "json" {
-		handleJSONBody(c, f, e)
+		extractJsonBody(c, e)
 	} else {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Body type is not supported"})
 	}
@@ -93,7 +97,7 @@ func handleBody(c *gin.Context, f sflowg.Flow, e *sflowg.Execution) {
 
 var wrongBodyFormatRes = gin.H{"message": "Wrong request body format"}
 
-func handleJSONBody(c *gin.Context, f sflowg.Flow, e *sflowg.Execution) {
+func extractJsonBody(c *gin.Context, e *sflowg.Execution) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, wrongBodyFormatRes)
@@ -113,9 +117,8 @@ func handleJSONBody(c *gin.Context, f sflowg.Flow, e *sflowg.Execution) {
 		return
 	}
 
-	result := f.Entrypoint.Result
 	for k, v := range values {
-		e.AddVal(fmt.Sprintf("%s.body.%s", result, k), v)
+		e.AddVal(fmt.Sprintf("%s.%s", RequestBodyPrefix, k), v)
 	}
 }
 

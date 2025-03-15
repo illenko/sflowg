@@ -1,6 +1,18 @@
 package task
 
-import "github.com/go-resty/resty/v2"
+import (
+	"fmt"
+	"sflowg/sflowg"
+	"sflowg/sflowg/container"
+
+	"github.com/go-resty/resty/v2"
+)
+
+type HttpRequest struct{}
+
+func (t *HttpRequest) Execute(c *container.Container, e *sflowg.Execution, args map[string]any) (map[string]any, error) {
+	return nil, nil
+}
 
 const (
 	HeaderPrefix = "header."
@@ -15,6 +27,30 @@ type httpRequestConfig struct {
 	headers     map[string]string
 	queryParams map[string]string
 	body        map[string]any
+}
+
+func parseArgs(args map[string]any) (httpRequestConfig, error) {
+	uri, ok := args["url"].(string)
+	if !ok {
+		return httpRequestConfig{}, fmt.Errorf("uri not found or not a string")
+	}
+
+	method, ok := args["method"].(string)
+	if !ok {
+		return httpRequestConfig{}, fmt.Errorf("method not found or not a string")
+	}
+
+	headers := args["headers"].(map[string]any)
+	queryParameters := args["queryParameters"].(map[string]any)
+	body := args["body"].(map[string]any)
+
+	return httpRequestConfig{
+		uri:         uri,
+		method:      method,
+		headers:     sflowg.ToStringValueMap(headers),
+		queryParams: sflowg.ToStringValueMap(queryParameters),
+		body:        body,
+	}, nil
 }
 
 // executeRequest executes the HTTP request
@@ -34,20 +70,20 @@ func executeRequest(client *resty.Client, config httpRequestConfig) (map[string]
 		return nil, err
 	}
 
-	output := make(map[string]any)
+	result := make(map[string]any)
 
-	output["http-status"] = resp.Status()
-	output["http-status-code"] = resp.StatusCode()
-	output["success"] = !resp.IsError()
+	result["status"] = resp.Status()
+	result["statusCode"] = resp.StatusCode()
+	result["isError"] = resp.IsError()
 
 	if resp.IsError() {
 		for k, v := range errorResponse {
-			output[k] = v
+			result[fmt.Sprintf("body.%s", k)] = v
 		}
 	} else {
 		for k, v := range response {
-			output[k] = v
+			result[fmt.Sprintf("body.%s", k)] = v
 		}
 	}
-	return output, nil
+	return result, nil
 }

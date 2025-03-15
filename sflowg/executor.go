@@ -2,9 +2,11 @@ package sflowg
 
 import (
 	"fmt"
+	"sflowg/sflowg/container"
+	"sflowg/sflowg/task"
 )
 
-func Execute(f Flow, e *Execution) error {
+func Execute(c container.Container, f Flow, e *Execution) error {
 
 	nextStep := ""
 
@@ -36,9 +38,7 @@ func Execute(f Flow, e *Execution) error {
 		}
 
 		if s.Type == "assign" {
-			args := s.Args.(map[string]any)
-
-			for k, v := range args {
+			for k, v := range s.Args {
 				result, err := Eval(v.(string), e.Values)
 				if err != nil {
 					fmt.Printf("Error evaluating expression: %v\n", err)
@@ -47,9 +47,7 @@ func Execute(f Flow, e *Execution) error {
 				e.AddVal(k, result)
 			}
 		} else if s.Type == "switch" {
-			args := s.Args.(map[string]any)
-
-			for n, c := range args {
+			for n, c := range s.Args {
 				condition := c.(string)
 
 				result, err := Eval(condition, e.Values)
@@ -58,13 +56,32 @@ func Execute(f Flow, e *Execution) error {
 					return err
 				}
 
-				if result.(bool) {
+				resultBool, ok := result.(bool)
+
+				if !ok {
+					fmt.Printf("Error evaluating expression: %v\n", err)
+					return fmt.Errorf("condition %s is not a boolean", condition)
+				}
+
+				if resultBool {
 					fmt.Printf("Resolving switch: %s is true, next step is %s\n", condition, n)
 					nextStep = n
 					break
 				} else {
 					fmt.Printf("Resolving switch: %s is false\n", condition)
 				}
+			}
+		} else if s.Type == "http" {
+			httpTask := task.HttpRequest{}
+
+			output, err := httpTask.Execute(&c, e, s.Args)
+
+			if err != nil {
+				return err
+			}
+
+			for k, v := range output {
+				e.AddVal(k, v)
 			}
 		} else {
 			fmt.Printf("Task type: %s not supported yet\n", s.Type)

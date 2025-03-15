@@ -17,16 +17,14 @@ type Flow struct {
 type Entrypoint struct {
 	Type   string         `yaml:"type"`
 	Config map[string]any `yaml:"config"`
-	Result string         `yaml:"result"`
 }
 
 type Step struct {
-	ID        string `yaml:"id"`
-	Type      string `yaml:"type"`
-	Condition string `yaml:"condition,omitempty"`
-	Args      any    `yaml:"args"`
-	Next      string `yaml:"next,omitempty"`
-	Result    string `yaml:"result,omitempty"`
+	ID        string         `yaml:"id"`
+	Type      string         `yaml:"type"`
+	Condition string         `yaml:"condition,omitempty"`
+	Args      map[string]any `yaml:"args"`
+	Next      string         `yaml:"next,omitempty"`
 }
 
 type Return struct {

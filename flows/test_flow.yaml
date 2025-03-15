@@ -13,7 +13,6 @@ entrypoint:
       - mode
     body:
       type: json
-  result: request
 
 properties:
   paymentServiceUrl: "http://localhost:8080/pay"
@@ -29,7 +28,7 @@ steps:
       assignedStatus: properties.defaultStatus
       receivedCard: request.body.card.number
 
-  - id: sendPaymentRequest
+  - id: sendPayment
     type: http
     condition: request.body.amount.total > 400
     args:
@@ -37,6 +36,8 @@ steps:
       method: post
       headers:
         - X-API-Key: request.headers.X-API-Key
+      queryParameters:
+        - mode: request.query.mode
       body:
         var_amount: properties.amount
         amount: request.body.amount
@@ -44,7 +45,6 @@ steps:
         card_number_var: properties.cardNumber
         expiry: request.body.expiryDate
         cvv: request.body.cvv
-    result: paymentResponse
 
   - id: processPaymentResponse
     type: switch
