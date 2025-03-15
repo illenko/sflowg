@@ -1,4 +1,4 @@
-package container
+package sflowg
 
 import (
 	"github.com/go-resty/resty/v2"

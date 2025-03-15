@@ -35,9 +35,9 @@ steps:
       url: properties.paymentServiceUrl
       method: post
       headers:
-        - X-API-Key: request.headers.X-API-Key
+        X-API-Key: request.headers.X-API-Key
       queryParameters:
-        - mode: request.query.mode
+        mode: request.query.mode
       body:
         var_amount: properties.amount
         amount: request.body.amount

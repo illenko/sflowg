@@ -2,15 +2,13 @@ package sflowg
 
 import (
 	"fmt"
-	"sflowg/sflowg/container"
-	"sflowg/sflowg/task"
 )
 
-func Execute(c container.Container, f Flow, e *Execution) error {
+func Execute(e *Execution) error {
 
 	nextStep := ""
 
-	for _, s := range f.Steps {
+	for _, s := range e.Flow.Steps {
 		if nextStep != "" {
 			if s.ID != nextStep {
 				fmt.Printf("Skipping step: %s, searching for %s\n", s.ID, nextStep)
@@ -72,9 +70,9 @@ func Execute(c container.Container, f Flow, e *Execution) error {
 				}
 			}
 		} else if s.Type == "http" {
-			httpTask := task.HttpRequest{}
+			httpTask := HttpRequest{}
 
-			output, err := httpTask.Execute(&c, e, s.Args)
+			output, err := httpTask.Execute(e, s.Args)
 
 			if err != nil {
 				return err

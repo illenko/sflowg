@@ -4,7 +4,7 @@ X-API-Key: test_api
 
 {
   "amount": {
-    "total": 400,
+    "total": 500,
     "fee": 0.5,
     "currency": "UAH"
   },

@@ -1,24 +1,30 @@
-package task
+package sflowg
 
 import (
 	"fmt"
-	"sflowg/sflowg"
-	"sflowg/sflowg/container"
 
 	"github.com/go-resty/resty/v2"
 )
 
 type HttpRequest struct{}
 
-func (t *HttpRequest) Execute(c *container.Container, e *sflowg.Execution, args map[string]any) (map[string]any, error) {
-	return nil, nil
-}
+func (t *HttpRequest) Execute(e *Execution, args map[string]any) (map[string]any, error) {
+	requestConfig, err := parseArgs(args)
 
-const (
-	HeaderPrefix = "header."
-	QueryPrefix  = "query."
-	BodyPrefix   = "body."
-)
+	if err != nil {
+		return nil, err
+	}
+
+	client := e.Container.HttpClient
+
+	response, err := executeRequest(client, requestConfig)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
 
 // httpRequestConfig is a struct that holds the configuration for an HTTP request
 type httpRequestConfig struct {
@@ -47,8 +53,8 @@ func parseArgs(args map[string]any) (httpRequestConfig, error) {
 	return httpRequestConfig{
 		uri:         uri,
 		method:      method,
-		headers:     sflowg.ToStringValueMap(headers),
-		queryParams: sflowg.ToStringValueMap(queryParameters),
+		headers:     ToStringValueMap(headers),
+		queryParams: ToStringValueMap(queryParameters),
 		body:        body,
 	}, nil
 }

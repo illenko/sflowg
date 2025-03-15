@@ -1,18 +1,17 @@
-package entrypoint
+package sflowg
 
 import (
 	"fmt"
 	"io"
 	"net/http"
-	"sflowg/sflowg"
 	"strings"
 
 	"github.com/Jeffail/gabs/v2"
 	"github.com/gin-gonic/gin"
 )
 
-func NewHttpHandler(f sflowg.Flow, g *gin.Engine) {
-	config := f.Entrypoint.Config
+func NewHttpHandler(flow *Flow, container *Container, g *gin.Engine) {
+	config := flow.Entrypoint.Config
 	method := strings.ToLower(config["method"].(string))
 	path := config["path"].(string)
 
@@ -20,21 +19,21 @@ func NewHttpHandler(f sflowg.Flow, g *gin.Engine) {
 
 	switch method {
 	case "get":
-		g.GET(path, handleRequest(f, false))
+		g.GET(path, handleRequest(flow, container, false))
 	case "post":
-		g.POST(path, handleRequest(f, true))
+		g.POST(path, handleRequest(flow, container, true))
 	default:
 		fmt.Printf("Method %s is not supported", method)
 	}
 }
 
-func handleRequest(f sflowg.Flow, withBody bool) gin.HandlerFunc {
+func handleRequest(flow *Flow, container *Container, withBody bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		e := sflowg.NewExecution(f)
+		e := NewExecution(flow, container)
 
-		extractRequestData(c, f, &e, withBody)
+		extractRequestData(c, flow, &e, withBody)
 
-		err := sflowg.Execute(f, &e)
+		err := Execute(&e)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -58,7 +57,7 @@ const (
 	RequestBodyPrefix     = "request.body"
 )
 
-func extractRequestData(c *gin.Context, f sflowg.Flow, e *sflowg.Execution, withBody bool) {
+func extractRequestData(c *gin.Context, f *Flow, e *Execution, withBody bool) {
 	if pathVariables, ok := f.Entrypoint.Config[PathVariablesKey].([]any); ok {
 		extractValues(e, pathVariables, PathVariablesPrefix, c.Param)
 	}
@@ -76,7 +75,7 @@ func extractRequestData(c *gin.Context, f sflowg.Flow, e *sflowg.Execution, with
 	}
 }
 
-func extractValues(e *sflowg.Execution, keys []any, prefix string, getValue func(string) string) {
+func extractValues(e *Execution, keys []any, prefix string, getValue func(string) string) {
 	for _, key := range keys {
 		if v, ok := key.(string); ok {
 			e.AddVal(fmt.Sprintf("%s.%s", prefix, v), getValue(v))
@@ -84,7 +83,7 @@ func extractValues(e *sflowg.Execution, keys []any, prefix string, getValue func
 	}
 }
 
-func extractBody(c *gin.Context, f sflowg.Flow, e *sflowg.Execution) {
+func extractBody(c *gin.Context, f *Flow, e *Execution) {
 	bodyConfig := f.Entrypoint.Config["body"].(map[string]any)
 	bodyType := bodyConfig["type"].(string)
 
@@ -97,7 +96,7 @@ func extractBody(c *gin.Context, f sflowg.Flow, e *sflowg.Execution) {
 
 var wrongBodyFormatRes = gin.H{"message": "Wrong request body format"}
 
-func extractJsonBody(c *gin.Context, e *sflowg.Execution) {
+func extractJsonBody(c *gin.Context, e *Execution) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, wrongBodyFormatRes)
@@ -122,7 +121,7 @@ func extractJsonBody(c *gin.Context, e *sflowg.Execution) {
 	}
 }
 
-func toResponse(c *gin.Context, e *sflowg.Execution) {
+func toResponse(c *gin.Context, e *Execution) {
 	jsonObj := gabs.New()
 
 	res := make(map[string]any)
