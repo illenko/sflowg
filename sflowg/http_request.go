@@ -46,9 +46,9 @@ func parseArgs(e *Execution, args map[string]any) (httpRequestConfig, error) {
 		return httpRequestConfig{}, fmt.Errorf("method not found or not a string")
 	}
 
-	headers := args["headers"].(map[string]any)
+	headers := make(map[string]any)
 
-	for key, value := range headers {
+	for key, value := range args["headers"].(map[string]any) {
 		headerValue, err := Eval(value.(string), e.Values)
 
 		if err != nil {
@@ -58,9 +58,9 @@ func parseArgs(e *Execution, args map[string]any) (httpRequestConfig, error) {
 		headers[key] = headerValue
 	}
 
-	queryParameters := args["queryParameters"].(map[string]any)
+	queryParameters := make(map[string]any)
 
-	for key, value := range queryParameters {
+	for key, value := range args["queryParameters"].(map[string]any) {
 		queryValue, err := Eval(value.(string), e.Values)
 
 		if err != nil {
@@ -70,9 +70,9 @@ func parseArgs(e *Execution, args map[string]any) (httpRequestConfig, error) {
 		queryParameters[key] = queryValue
 	}
 
-	body := args["body"].(map[string]any)
+	body := make(map[string]any)
 
-	for key, value := range body {
+	for key, value := range args["body"].(map[string]any) {
 		bodyValue, err := Eval(value.(string), e.Values)
 
 		if err != nil {

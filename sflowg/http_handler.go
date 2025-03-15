@@ -33,7 +33,7 @@ func handleRequest(flow *Flow, container *Container, withBody bool) gin.HandlerF
 
 		extractRequestData(c, flow, &e, withBody)
 
-		err := Execute(&e)
+		err := ExecuteSteps(&e)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{

@@ -28,8 +28,11 @@ func NewApp() App {
 
 	httpClient := resty.New().SetDebug(true)
 
+	tasks := make(map[string]Task)
+	tasks["http"] = &HttpRequest{}
+
 	return App{
-		Container: NewContainer(httpClient),
+		Container: NewContainer(httpClient, tasks),
 		Flows:     map[string]Flow{flow.ID: flow},
 	}
 }
