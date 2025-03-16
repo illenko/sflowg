@@ -45,7 +45,11 @@ steps:
         card_number_var: properties.cardNumber
         expiry: request.body.expiryDate
         cvv: request.body.card.cvv
-
+    retry:
+      maxRetries: 3
+      delay: 1000
+      backoff: true
+      condition: sendPayment.result.status != 200
 
   - id: processPaymentResponse
     type: switch
