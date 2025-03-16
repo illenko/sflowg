@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewHttpHandler(flow *Flow, container *Container, g *gin.Engine) {
+func NewHttpHandler(flow *Flow, container *Container, executor *Executor, g *gin.Engine) {
 	config := flow.Entrypoint.Config
 	method := strings.ToLower(config["method"].(string))
 	path := config["path"].(string)
@@ -19,21 +19,21 @@ func NewHttpHandler(flow *Flow, container *Container, g *gin.Engine) {
 
 	switch method {
 	case "get":
-		g.GET(path, handleRequest(flow, container, false))
+		g.GET(path, handleRequest(flow, container, executor, false))
 	case "post":
-		g.POST(path, handleRequest(flow, container, true))
+		g.POST(path, handleRequest(flow, container, executor, true))
 	default:
 		fmt.Printf("Method %s is not supported", method)
 	}
 }
 
-func handleRequest(flow *Flow, container *Container, withBody bool) gin.HandlerFunc {
+func handleRequest(flow *Flow, container *Container, executor *Executor, withBody bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		e := NewExecution(flow, container)
 
 		extractRequestData(c, flow, &e, withBody)
 
-		err := ExecuteSteps(&e)
+		err := executor.ExecuteSteps(&e)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -78,7 +78,7 @@ func extractRequestData(c *gin.Context, f *Flow, e *Execution, withBody bool) {
 func extractValues(e *Execution, keys []any, prefix string, getValue func(string) string) {
 	for _, key := range keys {
 		if v, ok := key.(string); ok {
-			e.AddVal(fmt.Sprintf("%s.%s", prefix, v), getValue(v))
+			e.AddValue(fmt.Sprintf("%s.%s", prefix, v), getValue(v))
 		}
 	}
 }
@@ -117,7 +117,7 @@ func extractJsonBody(c *gin.Context, e *Execution) {
 	}
 
 	for k, v := range values {
-		e.AddVal(fmt.Sprintf("%s.%s", RequestBodyPrefix, k), v)
+		e.AddValue(fmt.Sprintf("%s.%s", RequestBodyPrefix, k), v)
 	}
 }
 

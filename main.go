@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
+	"os"
 	"sflowg/sflowg"
 
 	"github.com/gin-gonic/gin"
@@ -14,7 +16,11 @@ func main() {
 
 	flow := app.Flows["test_flow"]
 
-	sflowg.NewHttpHandler(&flow, app.Container, g)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	executor := sflowg.NewExecutor(logger)
+
+	sflowg.NewHttpHandler(&flow, app.Container, executor, g)
 
 	err := g.Run(":8080")
 

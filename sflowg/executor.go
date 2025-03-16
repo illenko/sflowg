@@ -2,156 +2,159 @@ package sflowg
 
 import (
 	"fmt"
+	"log/slog"
 	"strconv"
 	"time"
 )
 
-func ExecuteSteps(e *Execution) error {
+type Executor struct {
+	l *slog.Logger
+}
+
+func NewExecutor(l *slog.Logger) *Executor {
+	return &Executor{l: l}
+}
+
+func (e *Executor) ExecuteSteps(execution *Execution) error {
 	nextStep := ""
 
-	for _, s := range e.Flow.Steps {
+	for _, s := range execution.Flow.Steps {
 		if nextStep != "" {
 			if s.ID != nextStep {
-				fmt.Printf("Skipping step: %s, searching for %s\n", s.ID, nextStep)
+				e.l.InfoContext(execution, fmt.Sprintf("Skipping step: %s", s.ID))
 				continue
 			}
 			nextStep = ""
-			fmt.Printf("Found expected step: %s\n", s.ID)
+			e.l.InfoContext(execution, fmt.Sprintf("Resuming flow at step: %s", s.ID))
 		}
 
-		if err := evaluateCondition(e, s); err != nil {
-			fmt.Printf("Skipping step: %s\n", s.ID)
+		if err := e.evaluateCondition(execution, s); err != nil {
+			e.l.InfoContext(execution, fmt.Sprintf("Skipping step: %s", s.ID))
 			continue
 		}
 
-		if err := executeStepType(e, s, &nextStep); err != nil {
-			return err
+		if err := e.executeStepType(execution, s, &nextStep); err != nil {
+			return fmt.Errorf("error executing step: %s", s.ID)
 		}
 
-		if err := handleRetry(e, s); err != nil {
-			return err
+		if err := e.handleRetry(execution, s); err != nil {
+			return fmt.Errorf("error retrying step: %s", s.ID)
 		}
 	}
 
 	return nil
 }
 
-func evaluateCondition(e *Execution, s Step) error {
-	if s.Condition == "" {
+func (e *Executor) evaluateCondition(execution *Execution, step Step) error {
+	if step.Condition == "" {
 		return nil
 	}
 
-	result, err := Eval(s.Condition, e.Values)
+	result, err := Eval(step.Condition, execution.Values)
 	if err != nil {
-		fmt.Printf("Error evaluating expression: %v\n", err)
-		return err
+		return fmt.Errorf("error evaluating condition: %v", err)
 	}
 
 	if !result.(bool) {
-		fmt.Printf("Skipping step: %s\n", s.ID)
-		return fmt.Errorf("condition not met") // return an error so that the calling function knows the step was skipped, but continue.
+		return fmt.Errorf("condition not met: %s", step.Condition)
 	}
-	fmt.Printf("Condition %s is satisfied for step: %s\n", s.Condition, s.ID)
+	e.l.InfoContext(execution, fmt.Sprintf("Condition met: %s", step.Condition))
 	return nil
 }
 
-func executeStepType(e *Execution, s Step, nextStep *string) error {
-	switch s.Type {
+func (e *Executor) executeStepType(execution *Execution, step Step, nextStep *string) error {
+	switch step.Type {
 	case "assign":
-		return handleAssign(e, s)
+		return e.handleAssign(execution, step)
 	case "switch":
-		return handleSwitch(e, s, nextStep)
+		return e.handleSwitch(execution, step, nextStep)
 	default:
-		return handleTask(e, s)
+		return e.handleTask(execution, step)
 	}
 }
 
-func handleAssign(e *Execution, s Step) error {
-	for k, v := range s.Args {
-		result, err := Eval(v.(string), e.Values)
+func (e *Executor) handleAssign(execution *Execution, step Step) error {
+	for k, v := range step.Args {
+		result, err := Eval(v.(string), execution.Values)
 		if err != nil {
-			fmt.Printf("Error evaluating expression: %v\n", err)
-			return err
+			return fmt.Errorf("error evaluating expression: %v", err)
 		}
-		e.AddVal(k, result)
+		execution.AddValue(k, result)
 	}
 	return nil
 }
 
-func handleSwitch(e *Execution, s Step, nextStep *string) error {
-	for n, c := range s.Args {
+func (e *Executor) handleSwitch(execution *Execution, step Step, nextStep *string) error {
+	for n, c := range step.Args {
 		condition := c.(string)
-		result, err := Eval(condition, e.Values)
+		result, err := Eval(condition, execution.Values)
 		if err != nil {
-			fmt.Printf("Error evaluating expression: %v\n", err)
-			return err
+			return fmt.Errorf("error evaluating expression: %v", err)
 		}
 		resultBool, ok := result.(bool)
 		if !ok {
 			return fmt.Errorf("condition %s is not a boolean", condition)
 		}
 		if resultBool {
-			fmt.Printf("Resolving switch: %s is true, next step is %s\n", condition, n)
+			e.l.InfoContext(execution, fmt.Sprintf("Resolving switch: %s is true", condition))
 			*nextStep = n
 			return nil
 		}
-		fmt.Printf("Resolving switch: %s is false\n", condition)
+		e.l.InfoContext(execution, fmt.Sprintf("Resolving switch: %s is false", condition))
 	}
 	return nil
 }
 
-func handleTask(e *Execution, s Step) error {
-	task, ok := e.Container.Tasks[s.Type]
+func (e *Executor) handleTask(execution *Execution, step Step) error {
+	task, ok := execution.Container.Tasks[step.Type]
 	if !ok {
-		fmt.Printf("Task type: %s not found\n", s.Type)
-		return fmt.Errorf("task type: %s not found", s.Type)
+		return fmt.Errorf("task type: %s not found", step.Type)
 	}
-	executeTask(e, task, s)
-	fmt.Printf("Step %s executed\n", s.ID)
+	e.executeTask(execution, task, step)
+	e.l.InfoContext(execution, fmt.Sprintf("Executed task: %s", step.Type))
 	return nil
 }
 
-func handleRetry(e *Execution, s Step) error {
-	if s.Retry == nil {
+func (e *Executor) handleRetry(execution *Execution, step Step) error {
+	if step.Retry == nil {
 		return nil
 	}
 
-	task, ok := e.Container.Tasks[s.Type]
+	task, ok := execution.Container.Tasks[step.Type]
 	if !ok {
-		return fmt.Errorf("Task type: %s not found", s.Type)
+		return fmt.Errorf("Task type: %step not found", step.Type)
 	}
 
-	for i := 0; i < s.Retry.MaxRetries; i++ {
-		condition, err := Eval(s.Retry.Condition, e.Values)
-		fmt.Printf("[%s/%s] Retrying step: %s, condition: %v\n", strconv.Itoa(i+1), strconv.Itoa(s.Retry.MaxRetries), s.ID, condition)
+	for i := 0; i < step.Retry.MaxRetries; i++ {
+		condition, err := Eval(step.Retry.Condition, execution.Values)
+		e.l.InfoContext(execution, fmt.Sprintf("[%step/%step] Retrying step: %step, condition: %v\n", strconv.Itoa(i+1), strconv.Itoa(step.Retry.MaxRetries), step.ID, condition))
 
 		if err != nil {
-			fmt.Printf("Error evaluating expression: %v\n", err)
-			return err
+			return fmt.Errorf("error evaluating retry condition: %v", err)
 		}
 
 		if !condition.(bool) {
 			break
 		}
 
-		delay := time.Duration(s.Retry.Delay) * time.Millisecond
-		if s.Retry.Backoff {
-			delay = time.Duration(i*s.Retry.Delay) * time.Millisecond
+		delay := time.Duration(step.Retry.Delay) * time.Millisecond
+		if step.Retry.Backoff {
+			delay = time.Duration(i*step.Retry.Delay) * time.Millisecond
 		}
 		time.Sleep(delay)
-		executeTask(e, task, s)
+		e.executeTask(execution, task, step)
 	}
 	return nil
 }
 
-func executeTask(e *Execution, task Task, s Step) {
-	output, err := task.Execute(e, s.Args)
+func (e *Executor) executeTask(execution *Execution, task Task, s Step) {
+	output, err := task.Execute(execution, s.Args)
 
 	if err != nil {
-		e.AddVal(fmt.Sprintf("%s.error", s.ID), err.Error())
+		execution.AddValue(fmt.Sprintf("%s.error", s.ID), err.Error())
 	}
 
 	for k, v := range output {
-		e.AddVal(fmt.Sprintf("%s.result.%s", s.ID, k), v)
+		execution.AddValue(fmt.Sprintf("%s.result.%s", s.ID, k), v)
 	}
 }
