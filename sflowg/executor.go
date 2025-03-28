@@ -127,7 +127,7 @@ func (e *Executor) handleRetry(execution *Execution, step Step) error {
 
 	for i := 0; i < step.Retry.MaxRetries; i++ {
 		condition, err := Eval(step.Retry.Condition, execution.Values)
-		e.l.InfoContext(execution, fmt.Sprintf("[%step/%step] Retrying step: %step, condition: %v\n", strconv.Itoa(i+1), strconv.Itoa(step.Retry.MaxRetries), step.ID, condition))
+		e.l.InfoContext(execution, fmt.Sprintf("[%s/%s] Retrying step: %step, condition: %v\n", strconv.Itoa(i+1), strconv.Itoa(step.Retry.MaxRetries), step.ID, condition))
 
 		if err != nil {
 			return fmt.Errorf("error evaluating retry condition: %v", err)

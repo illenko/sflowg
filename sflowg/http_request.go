@@ -6,9 +6,9 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-type HttpRequest struct{}
+type HttpRequestTask struct{}
 
-func (t *HttpRequest) Execute(e *Execution, args map[string]any) (map[string]any, error) {
+func (t *HttpRequestTask) Execute(e *Execution, args map[string]any) (map[string]any, error) {
 	requestConfig, err := parseArgs(e, args)
 
 	if err != nil {

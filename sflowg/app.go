@@ -3,6 +3,7 @@ package sflowg
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/go-resty/resty/v2"
 	"gopkg.in/yaml.v3"
@@ -13,26 +14,53 @@ type App struct {
 	Flows     map[string]Flow
 }
 
-func NewApp() App {
-	// todo: implement reading multiple flows
-	yamlFile, err := os.ReadFile("flows/test_flow.yaml")
+func NewApp(flowsDir string) (*App, error) {
+	files, err := filepath.Glob(filepath.Join(flowsDir, "*.yaml"))
 	if err != nil {
-		fmt.Printf("Error reading YAML file: %v\n", err)
+		return nil, fmt.Errorf("error reading directory: %w", err)
+	}
+
+	httpClient := resty.New().SetDebug(true)
+
+	app := App{
+		Container: NewContainer(httpClient, builtInTasks),
+		Flows:     make(map[string]Flow),
+	}
+
+	for _, file := range files {
+		flow, err := readFlow(file)
+		if err != nil {
+			return nil, err
+		}
+		app.RegisterFlow(flow)
+	}
+
+	return &app, nil
+}
+
+var builtInTasks = map[string]Task{
+	"http": &HttpRequestTask{},
+}
+
+func (a *App) RegisterTask(name string, task Task) {
+	a.Container.SetTask(name, task)
+}
+
+func (a *App) RegisterFlow(flow Flow) {
+	a.Flows[flow.ID] = flow
+}
+
+func readFlow(file string) (Flow, error) {
+	yamlFile, err := os.ReadFile(file)
+	if err != nil {
+		return Flow{}, fmt.Errorf("error reading YAML file: %w", err)
 	}
 
 	var flow Flow
 	err = yaml.Unmarshal(yamlFile, &flow)
 	if err != nil {
-		fmt.Printf("Error unmarshalling YAML: %v\n", err)
+		return Flow{}, fmt.Errorf("error unmarshalling YAML: %w", err)
 	}
 
-	httpClient := resty.New().SetDebug(true)
-
-	tasks := make(map[string]Task)
-	tasks["http"] = &HttpRequest{}
-
-	return App{
-		Container: NewContainer(httpClient, tasks),
-		Flows:     map[string]Flow{flow.ID: flow},
-	}
+	return flow, nil
 }

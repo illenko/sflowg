@@ -10,7 +10,12 @@ import (
 )
 
 func main() {
-	app := sflowg.NewApp()
+	app, err := sflowg.NewApp("flows")
+
+	if err != nil {
+		fmt.Printf("Error initializing app: %v", err)
+		return
+	}
 
 	g := gin.Default()
 
@@ -22,7 +27,7 @@ func main() {
 
 	sflowg.NewHttpHandler(&flow, app.Container, executor, g)
 
-	err := g.Run(":8080")
+	err = g.Run(":8080")
 
 	if err != nil {
 		fmt.Printf("Error running server: %v", err)

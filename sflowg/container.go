@@ -15,3 +15,15 @@ func NewContainer(httpClient *resty.Client, tasks map[string]Task) *Container {
 		Tasks:      tasks,
 	}
 }
+
+func (c *Container) GetTask(name string) Task {
+	task, ok := c.Tasks[name]
+	if !ok {
+		return nil
+	}
+	return task
+}
+
+func (c *Container) SetTask(name string, task Task) {
+	c.Tasks[name] = task
+}
